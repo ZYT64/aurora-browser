@@ -1,0 +1,59 @@
+name: probe-runner
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'probe = 环境探测（快速）；build = content_shell 完整构建（长任务）'
+        required: true
+        default: 'probe'
+        type: choice
+        options:
+          - probe
+          - build
+
+jobs:
+  probe:
+    if: inputs.stage == 'probe'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Runner 规格与磁盘基线
+        run: |
+          echo "=== CPU/内存 ==="
+          nproc; free -h
+          echo "=== 磁盘 ==="
+          df -h / /mnt /tmp 2>/dev/null
+          echo "=== 网络（拉源码用） ==="
+          curl -s -o /dev/null -w 'chromium.googlesource: %{http_code} %{time_total}s\n' https://chromium.googlesource.com/ || true
+
+      - name: depot_tools 安装测试
+        run: |
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+          export PATH="$HOME/depot_tools:$PATH"
+          gclient --version && echo "depot_tools OK"
+
+      - name: fetch 源码（浅克隆·磁盘实测）
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          export DEPOT_TOOLS_UPDATE=0
+          mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
+          # 只拉源码骨架，不带历史；测试数据目录排除以省磁盘
+          fetch --no-history chromium --nohooks 2>&1 | tail -5
+          echo "=== fetch 后磁盘占用 ==="
+          du -sh "$HOME/chromium/src" || du -sh "$HOME/chromium"
+          df -h /
+
+  build:
+    if: inputs.stage == 'build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: 完整构建流水（第 2 期实现）
+        run: |
+          echo "此 job 在第 2 期实现："
+          echo "  1. depot_tools + fetch --no-history（浅）"
+          echo "  2. 删除测试数据目录释放磁盘（test/fonts/test_data 等）"
+          echo "  3. 打 AURORA-FP F1 补丁"
+          echo "  4. gn gen + autoninja -C out/Release content_shell"
+          echo "  5. WebGL UNMASKED 值验证 + artifact 上传"
+          exit 0

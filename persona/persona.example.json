@@ -1,0 +1,37 @@
+{
+  "_comment": "AURORA-FP persona 配置文件示例。每个 profile 一份，引擎在编译期读取（F1-F8 各补丁点），同一 profile 恒定不漂移，不同 profile 完全独立。",
+  "_version": "0.1",
+  "identity": {
+    "name": "template-desktop-01",
+    "source": "real-machine-snapshot",
+    "os": "Windows 11 23H2"
+  },
+  "gpu": {
+    "vendor_id": "0x10de",
+    "device_id": "0x2188",
+    "gl_vendor": "Google Inc. (NVIDIA)",
+    "gl_renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "gl_version": "2.0.0 NVIDIA 466.77",
+    "device_name": "GTX 1650",
+    "webgl_extensions": "auto-consistent",
+    "canvas_seed": "base64:REPLACE_WITH_FIXED_SEED",
+    "audio_seed": "base64:REPLACE_WITH_FIXED_SEED"
+  },
+  "hardware": {
+    "deviceMemory": 8,
+    "hardwareConcurrency": 8,
+    "platform": "Win32",
+    "screen": { "width": 1920, "height": 1080, "dpr": 1.0, "colorDepth": 24 }
+  },
+  "fonts": {
+    "mode": "template",
+    "template_os": "windows-11",
+    "metric_jitter_ppm": 12
+  },
+  "client_hints": {
+    "architecture": "x86",
+    "bitness": "64",
+    "model": "",
+    "platformVersion": "15.0.0"
+  }
+}
