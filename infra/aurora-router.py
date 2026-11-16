@@ -18,25 +18,26 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
 log = logging.getLogger("aurora-router")
 
 OR_KEY = open("/tmp/or_gk_full.txt").read().strip()
-OFM_KEY = open("/tmp/ofm_forward_key.txt").read().strip()
+_OFM_SETTINGS = "/home/zyt/.dsh/our-free-model/settings.json"
+def _ofm_key():
+    """OFM forwardKey 会动态轮换，每次实时读取，永不过期"""
+    try:
+        with open(_OFM_SETTINGS) as f:
+            return json.load(f).get("forwardKey", "")
+    except Exception:
+        return ""
+OFM_KEY = _ofm_key()
 
 LANES = [
     {"name": "nim-step5",          "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/stepfun-ai/step-5-preview"},
     {"name": "nim-mistral-large",  "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/mistralai/mistral-large-4-1t-a52b"},
     {"name": "nim-nemotron-ultra", "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/nvidia/nemotron-3-ultra-550b-a55b"},
     {"name": "nim-nemotron-35-super-120b", "base": "http://127.0.0.1:20128/v1", "key": OR_KEY, "model": "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b"},
-    {"name": "nim-muse-glimmer",   "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/meta/muse-glimmer-30b"},
-    {"name": "nim-gemma-4-31b",    "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/google/gemma-4-31b-it", "slow": True},
-    {"name": "nim-laguna-code",    "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/poolside/laguna-xs-2.1"},
-    {"name": "nim-lightning-30b",  "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b"},
-    {"name": "nim-gpt-oss-20b",    "base": "http://127.0.0.1:20128/v1", "key": OR_KEY,  "model": "nvidia/openai/gpt-oss-20b"},
     {"name": "ofm-nemotron-ultra", "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "nvidia/nemotron-3-ultra-550b-a55b:free"},
     {"name": "ofm-nemotron-35-super", "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "nvidia/nemotron-3.5-super-vl:free"},
     {"name": "ofm-ernie-55-flash", "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "baidu/ernie-5.5-flash-preview:free"},
     {"name": "ofm-dots-3-note",    "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "dots-studio/dots-3-note-preview:free"},
-    {"name": "ofm-particle-1",     "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "particle-ai/particle-1:free"},
-    {"name": "ofm-north-mini-code","base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "cohere/north-mini-code:free"},
-    {"name": "ofm-kilo-auto",      "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "kilo-auto/free"},
+    {"name": "ofm-minimax-m31",    "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "minimaxai/minimax-m3.1-flash"},
     {"name": "ofm-eac-glm53",      "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "z-ai/glm-5.3-flash", "slow": True},
 ]
 COOLDOWN_S = 300
@@ -93,8 +94,9 @@ def probe_loop():
 def try_lane(l, body, stream, timeout):
     payload = dict(body)
     payload["model"] = l["model"]
+    key = _ofm_key() if "18899" in l["base"] else l["key"]  # OFM 车道每次实时取 key
     r = requests.post(f"{l['base']}/chat/completions",
-                      headers={"Authorization": f"Bearer {l['key']}", "Content-Type": "application/json"},
+                      headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                       json=payload, stream=stream, timeout=timeout)
     return r
 
