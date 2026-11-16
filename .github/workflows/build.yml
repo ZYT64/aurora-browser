@@ -64,7 +64,8 @@ jobs:
           export PATH="$HOME/depot_tools:$PATH"
           export DEPOT_TOOLS_UPDATE=0
           mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
-          time fetch --no-history chromium --nohooks 2>&1 | tail -20
+          # flags 必须全部前置（argparse 在 positional 之后的 flag 会解析失败）
+          time fetch --no-history --nohooks chromium 2>&1 | tail -30
           echo "=== fetch 后磁盘占用 ==="
           du -sh "$HOME/chromium/src" || du -sh "$HOME/chromium"
           du -sh "$HOME/chromium/src/test" 2>/dev/null || echo "test/ 不存在"
@@ -108,7 +109,7 @@ jobs:
           export PATH="$HOME/depot_tools:$PATH"
           export DEPOT_TOOLS_UPDATE=0
           mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
-          time fetch --no-history chromium --nohooks 2>&1 | tail -10
+          time fetch --no-history --nohooks chromium 2>&1 | tail -30
           du -sh "$HOME/chromium/src"
           df -h /
           # 释放磁盘：删测试数据目录（构建 content_shell 不需要）
@@ -116,20 +117,27 @@ jobs:
           rm -rf third_party/blink/web_tests test 2>/dev/null || true
           du -sh "$HOME/chromium/src"
           df -h /
+      - name: 安装构建依赖（install-build-deps，容忍个别包失败）
+        run: |
+          cd "$HOME/chromium/src"
+          export PATH="$HOME/depot_tools:$PATH"
+          sudo ./build/install-build-deps.sh --no-prompt 2>&1 | tail -20 || echo "install-build-deps 部分失败，继续尝试 runhooks"
+      - name: gclient runhooks（下载 clang 工具链/sysroot，编译前置）
+        run: |
+          cd "$HOME/chromium/src"
+          export PATH="$HOME/depot_tools:$PATH"
+          export DEPOT_TOOLS_UPDATE=0
+          time gclient runhooks 2>&1 | tail -30
+          df -h /
       - name: 生成 persona header + 打 F1 补丁
         run: |
           cd "$GITHUB_WORKSPACE"
-          # 把 overlay 的 persona header 放进源码树
+          # persona header 拷到补丁 include 的精确路径
           mkdir -p "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/"
-          cp -r src-overlay/* "$HOME/chromium/src/" 2>/dev/null || true
-          # 应用 F1 补丁
-          cd "$HOME/chromium/src"
-          patch -p1 --forward < "$GITHUB_WORKSPACE/patches/aurora-fp/F1-webgl-unmasked.patch" || {
-            echo "补丁应用失败"
-            exit 1
-          }
-          echo "F1 补丁已应用"
-          git diff --stat 2>/dev/null || true
+          cp src-overlay/aurora_persona.h "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/aurora_persona.h"
+          # 应用 F1 补丁（精确锚点替换，不依赖行号）
+          python3 "$GITHUB_WORKSPACE/scripts/apply_f1.py" "$HOME/chromium/src"
+          grep -n 'kAuroraGLRenderer\|aurora_persona' "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc" | head -5
       - name: GN 生成
         run: |
           cd "$HOME/chromium/src"

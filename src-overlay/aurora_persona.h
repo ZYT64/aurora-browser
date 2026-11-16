@@ -5,23 +5,23 @@
 #include <cstdint>
 
 // AURORA-FP F1: WebGL UNMASKED_VENDOR/RENDERER override
-static constexpr char kAuroraGLVendor[]     = "Google Inc. (NVIDIA)";
-static constexpr char kAuroraGLRenderer[]   = "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)";
-static constexpr char kAuroraGLVersion[]    = "2.0.0 NVIDIA 466.77";
-static constexpr char kAuroraGLDeviceName[] = "GTX 1650";
+[[maybe_unused]] static constexpr char kAuroraGLVendor[]     = "Google Inc. (NVIDIA)";
+[[maybe_unused]] static constexpr char kAuroraGLRenderer[]   = "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)";
+[[maybe_unused]] static constexpr char kAuroraGLVersion[]    = "2.0.0 NVIDIA 466.77";
+[[maybe_unused]] static constexpr char kAuroraGLDeviceName[] = "GTX 1650";
 
 // AURORA-FP F5: WebGPU adapter info
-static constexpr char kAuroraWGVendor[]     = "Google Inc. (NVIDIA)";
-static constexpr char kAuroraWGArch[]       = "x86";
+[[maybe_unused]] static constexpr char kAuroraWGVendor[]     = "Google Inc. (NVIDIA)";
+[[maybe_unused]] static constexpr char kAuroraWGArch[]       = "x86";
 
 // AURORA-FP F6: navigator.hardware
-static constexpr uint32_t kAuroraDeviceMemory     = 8;
-static constexpr uint32_t kAuroraHardwareConcurrency = 8;
+[[maybe_unused]] static constexpr uint32_t kAuroraDeviceMemory     = 8;
+[[maybe_unused]] static constexpr uint32_t kAuroraHardwareConcurrency = 8;
 
 // AURORA-FP F8: Client Hints
-static constexpr char kAuroraPlatform[]     = "Win32";
-static constexpr char kAuroraArch[]         = "x86";
-static constexpr char kAuroraBitness[]      = "64";
-static constexpr char kAuroraPlatformVersion[] = "15.0.0";
+[[maybe_unused]] static constexpr char kAuroraPlatform[]     = "Win32";
+[[maybe_unused]] static constexpr char kAuroraArch[]         = "x86";
+[[maybe_unused]] static constexpr char kAuroraBitness[]      = "64";
+[[maybe_unused]] static constexpr char kAuroraPlatformVersion[] = "15.0.0";
 
 #endif  // AURORA_PERSONA_H_
