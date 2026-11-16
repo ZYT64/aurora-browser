@@ -1,0 +1,29 @@
+From: kuroneko <leafpanda@agent.qq.com>
+Date: Wed, 16 Nov 2026 15:30:00 +0000
+Subject: [PATCH] AURORA-FP F1: WebGL UNMASKED_VENDOR/RENDERER override
+
+引擎级改写：WEBGL_debug_renderer_info 的 getParameter
+(UNMASKED_VENDOR / UNMASKED_RENDERER) 不再取自 ANGLE 上下文，
+而是读 persona header 编译期常量。
+
+--- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
++++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
+@@ -4355,14 +4355,14 @@ WebGLAny WebGLRenderingContextBase::GetParameterImpl(
+     case WebGLDebugRendererInfo::kUnmaskedRendererWebgl:
+       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
+         return WebGLAny(script_state,
+-                        String(ContextGL()->GetString(GL_RENDERER)));
++                        String(kAuroraGLRenderer));
+       }
+       SynthesizeGLError(
+           GL_INVALID_ENUM, "getParameter",
+           "invalid parameter name, WEBGL_debug_renderer_info not enabled");
+       return ScriptValue::CreateNull(script_state->GetIsolate());
+     case WebGLDebugRendererInfo::kUnmaskedVendorWebgl:
+       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
+-        return WebGLAny(script_state,
+-                        String(ContextGL()->GetString(GL_VENDOR)));
++        return WebGLAny(script_state, String(kAuroraGLVendor));
+       }
+       SynthesizeGLError(
+           GL_INVALID_ENUM, "getParameter",

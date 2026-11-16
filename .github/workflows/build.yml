@@ -1,15 +1,21 @@
-name: probe-runner
+name: aurora-fp-build
+
 on:
   workflow_dispatch:
     inputs:
       stage:
-        description: 'probe = 环境探测（快速）；build = content_shell 完整构建（长任务）'
+        description: 'probe = 环境探测；build-depot = depot_tools+fetch 实机；build = content_shell 完整构建'
         required: true
         default: 'probe'
         type: choice
         options:
           - probe
+          - build-depot
           - build
+      persona_file:
+        description: 'persona JSON 路径（仓库内相对路径）'
+        required: false
+        default: 'persona/persona.example.json'
 
 jobs:
   probe:
@@ -22,38 +28,110 @@ jobs:
           nproc; free -h
           echo "=== 磁盘 ==="
           df -h / /mnt /tmp 2>/dev/null
-          echo "=== 网络（拉源码用） ==="
-          curl -s -o /dev/null -w 'chromium.googlesource: %{http_code} %{time_total}s\n' https://chromium.googlesource.com/ || true
-
-      - name: depot_tools 安装测试
+          echo "=== 网络连通性（拉源码用） ==="
+          curl -s -m 15 -o /dev/null -w 'chromium.googlesource: %{http_code} %{time_total}s\n' https://chromium.googlesource.com/ || true
+          curl -s -m 15 -o /dev/null -w 'github raw: %{http_code} %{time_total}s\n' https://raw.githubusercontent.com/ || true
+      - name: depot_tools 版本
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
           echo "$HOME/depot_tools" >> "$GITHUB_PATH"
           export PATH="$HOME/depot_tools:$PATH"
           gclient --version && echo "depot_tools OK"
 
-      - name: fetch 源码（浅克隆·磁盘实测）
+  build-depot:
+    if: inputs.stage == 'build-depot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: depot_tools 安装
+        run: |
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+      - name: fetch 源码骨架（浅克隆·计时）
         run: |
           export PATH="$HOME/depot_tools:$PATH"
           export DEPOT_TOOLS_UPDATE=0
           mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
-          # 只拉源码骨架，不带历史；测试数据目录排除以省磁盘
-          fetch --no-history chromium --nohooks 2>&1 | tail -5
+          time fetch --no-history chromium --nohooks 2>&1 | tail -20
           echo "=== fetch 后磁盘占用 ==="
           du -sh "$HOME/chromium/src" || du -sh "$HOME/chromium"
+          du -sh "$HOME/chromium/src/test" 2>/dev/null || echo "test/ 不存在"
           df -h /
+      - name: 实机记录
+        if: always()
+        run: |
+          {
+            echo "=== 磁盘最终状态 ==="
+            du -sh "$HOME/chromium"/* 2>/dev/null | sort -rh | head -20
+            df -h /
+          } | tee fetch_report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fetch-report
+          path: fetch_report.txt
+          retention-days: 5
 
   build:
     if: inputs.stage == 'build'
     runs-on: ubuntu-latest
-    timeout-minutes: 355
+    timeout-minutes: 350
     steps:
-      - name: 完整构建流水（第 2 期实现）
+      - uses: actions/checkout@v4
+      - name: depot_tools + python 基件
         run: |
-          echo "此 job 在第 2 期实现："
-          echo "  1. depot_tools + fetch --no-history（浅）"
-          echo "  2. 删除测试数据目录释放磁盘（test/fonts/test_data 等）"
-          echo "  3. 打 AURORA-FP F1 补丁"
-          echo "  4. gn gen + autoninja -C out/Release content_shell"
-          echo "  5. WebGL UNMASKED 值验证 + artifact 上传"
-          exit 0
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 python3-pip git curl pkg-config libssl-dev libgbm-dev || true
+      - name: fetch 源码（浅克隆）
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          export DEPOT_TOOLS_UPDATE=0
+          mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
+          time fetch --no-history chromium --nohooks 2>&1 | tail -10
+          du -sh "$HOME/chromium/src"
+          df -h /
+          # 释放磁盘：删测试数据目录（构建 content_shell 不需要）
+          cd "$HOME/chromium/src"
+          rm -rf third_party/blink/web_tests test 2>/dev/null || true
+          du -sh "$HOME/chromium/src"
+          df -h /
+      - name: 生成 persona header + 打 F1 补丁
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          # 把 overlay 的 persona header 放进源码树
+          mkdir -p "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/"
+          cp -r src-overlay/* "$HOME/chromium/src/" 2>/dev/null || true
+          # 应用 F1 补丁
+          cd "$HOME/chromium/src"
+          patch -p1 --forward < "$GITHUB_WORKSPACE/patches/aurora-fp/F1-webgl-unmasked.patch" || {
+            echo "补丁应用失败"
+            exit 1
+          }
+          echo "F1 补丁已应用"
+          git diff --stat 2>/dev/null || true
+      - name: GN 生成
+        run: |
+          cd "$HOME/chromium/src"
+          export PATH="$HOME/depot_tools:$PATH"
+          gn gen out/Release --args='is_official_build=true is_component_build=false target_cpu="x64" symbol_level=0 strip=true'
+      - name: 编译 content_shell（最多 300 分钟，自动用 autoninja 并行）
+        run: |
+          cd "$HOME/chromium/src"
+          export PATH="$HOME/depot_tools:$PATH"
+          time autoninja -C out/Release content_shell
+      - name: 验证内容
+        run: |
+          cd "$HOME/chromium/src"
+          ls -lh out/Release/content_shell || ls -lh out/Release/headless_shell
+          file out/Release/content_shell || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurora-fp-content-shell
+          path: |
+            ~/chromium/src/out/Release/content_shell
+            ~/chromium/src/out/Release/*.so
+          retention-days: 5
+          if-no-files-found: error
