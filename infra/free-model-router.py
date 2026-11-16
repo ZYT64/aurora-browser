@@ -38,7 +38,7 @@ LANES = [
     {"name": "ofm-ernie-55-flash", "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "baidu/ernie-5.5-flash-preview:free"},
     {"name": "ofm-dots-3-note",    "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "dots-studio/dots-3-note-preview:free"},
     {"name": "ofm-minimax-m31",    "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "minimaxai/minimax-m3.1-flash"},
-    {"name": "ofm-eac-glm53",      "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "z-ai/glm-5.3-flash", "slow": True},
+    {"name": "ofm-eac-glm53",      "base": "http://127.0.0.1:18899/v1", "key": OFM_KEY, "model": "z-ai/glm-5.3-flash", "slow": True, "timeout": 400},
 ]
 COOLDOWN_S = 300
 FAIL_TO_COOL = 3
@@ -95,9 +95,10 @@ def try_lane(l, body, stream, timeout):
     payload = dict(body)
     payload["model"] = l["model"]
     key = _ofm_key() if "18899" in l["base"] else l["key"]  # OFM 车道每次实时取 key
+    t = l.get("timeout", 150)  # 快车道 150s：超时即切下一条，把总预算留给更多车道
     r = requests.post(f"{l['base']}/chat/completions",
                       headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                      json=payload, stream=stream, timeout=timeout)
+                      json=payload, stream=stream, timeout=(20, t))
     return r
 
 class Handler(BaseHTTPRequestHandler):
@@ -140,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"error": "bad json"})
         stream = bool(body.get("stream"))
         ask = body.get("model", "free-pool")
-        timeout = (20, 200)  # connect/read；EAC 慢车道留给兜底
+        timeout = (20, 400)  # connect/read；EAC 慢车道留给兜底
         errors = []
         for l in ordered_lanes():
             if ask == "free-fast" and l.get("slow"):
