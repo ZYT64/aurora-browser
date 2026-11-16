@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""aurora-router.py — AURORA 开发专用多车道自动路由器
+"""free-model-router.py — AURORA 开发专用多车道自动路由器
 - 汇聚全部免费车道（NIM / OFM free 池 / EAC / kilo 兜底）
 - lkgp：优先走上次成功的车道；失败自动 failover 下一个
 - 连续 3 次失败进 5 分钟冷却，冷却结束自动回归
 - 后台线程每 90 秒全车道健康探测
-- 对外暴露 OpenAI 兼容接口（模型名固定 aurora-dev）
+- 对外暴露 OpenAI 兼容接口（模型名固定 free-pool）
 监听 127.0.0.1:18970
 """
 import json, time, threading, logging, sys
@@ -15,7 +15,7 @@ LISTEN = ("127.0.0.1", 18970)
 LOG = "/home/zyt/abrowser/router.log"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
                     handlers=[logging.FileHandler(LOG), logging.StreamHandler(sys.stdout)])
-log = logging.getLogger("aurora-router")
+log = logging.getLogger("free-model-router")
 
 OR_KEY = open("/tmp/or_gk_full.txt").read().strip()
 _OFM_SETTINGS = "/home/zyt/.dsh/our-free-model/settings.json"
@@ -117,8 +117,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/v1/models", "/models"):
             self._json(200, {"object": "list", "data": [
-                {"id": "aurora-dev", "object": "model", "owned_by": "aurora-router"},
-                {"id": "aurora-fast", "object": "model", "owned_by": "aurora-router"}]})
+                {"id": "free-pool", "object": "model", "owned_by": "free-model-router"},
+                {"id": "free-fast", "object": "model", "owned_by": "free-model-router"}]})
         elif self.path == "/health":
             with lock:
                 now = time.time()
@@ -139,12 +139,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return self._json(400, {"error": "bad json"})
         stream = bool(body.get("stream"))
-        ask = body.get("model", "aurora-dev")
+        ask = body.get("model", "free-pool")
         timeout = (20, 200)  # connect/read；EAC 慢车道留给兜底
         errors = []
         for l in ordered_lanes():
-            if ask == "aurora-fast" and l.get("slow"):
-                continue  # aurora-fast 跳过慢车道
+            if ask == "free-fast" and l.get("slow"):
+                continue  # free-fast 跳过慢车道
             try:
                 r = try_lane(l, body, stream, timeout)
                 if r.status_code == 200:
@@ -175,5 +175,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     threading.Thread(target=probe_loop, daemon=True).start()
-    log.info(f"aurora-router up on {LISTEN}, {len(LANES)} lanes")
+    log.info(f"free-model-router up on {LISTEN}, {len(LANES)} lanes")
     ThreadingHTTPServer(LISTEN, Handler).serve_forever()
