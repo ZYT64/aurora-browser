@@ -112,11 +112,8 @@ jobs:
           time fetch --no-history --nohooks chromium 2>&1 | tail -30
           du -sh "$HOME/chromium/src"
           df -h /
-          # 释放磁盘：删测试数据目录（构建 content_shell 不需要）
-          cd "$HOME/chromium/src"
-          rm -rf third_party/blink/web_tests test 2>/dev/null || true
-          du -sh "$HOME/chromium/src"
-          df -h /
+          # 磁盘实测：fetch 后约 90G used / 56G 剩，足够 content_shell 编译，不再删任何目录
+          # （web_tests 被主 BUILD.gn 的 wpt_tests target 引用，删了 gn gen 会挂）
       - name: 安装构建依赖（install-build-deps，容忍个别包失败）
         run: |
           cd "$HOME/chromium/src"
@@ -142,7 +139,8 @@ jobs:
         run: |
           cd "$HOME/chromium/src"
           export PATH="$HOME/depot_tools:$PATH"
-          gn gen out/Release --args='is_official_build=true is_component_build=false target_cpu="x64" symbol_level=0 strip=true'
+          # 非 official release：编译快、无 PGO 依赖；symbol_level=0 省内存磁盘
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0'
       - name: 编译 content_shell（最多 300 分钟，自动用 autoninja 并行）
         run: |
           cd "$HOME/chromium/src"
