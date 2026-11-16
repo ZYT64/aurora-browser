@@ -36,6 +36,9 @@ jobs:
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
           echo "$HOME/depot_tools" >> "$GITHUB_PATH"
           export PATH="$HOME/depot_tools:$PATH"
+          cd "$HOME/depot_tools"
+          ./ensure_bootstrap || gclient --version
+          ls -la python3_bin_reldir.txt
           gclient --version && echo "depot_tools OK"
 
   build-depot:
@@ -48,6 +51,14 @@ jobs:
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
           echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+      - name: 初始化 depot_tools（必须，否则 fetch 假成功）
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          export DEPOT_TOOLS_UPDATE=0
+          cd "$HOME/depot_tools"
+          ls -la python3_bin_reldir.txt 2>/dev/null || echo "python3_bin_reldir.txt 缺失 → 执行 ensure_bootstrap"
+          ./ensure_bootstrap || gclient --version
+          ls -la python3_bin_reldir.txt
       - name: fetch 源码骨架（浅克隆·计时）
         run: |
           export PATH="$HOME/depot_tools:$PATH"
@@ -85,6 +96,13 @@ jobs:
           echo "$HOME/depot_tools" >> "$GITHUB_PATH"
           sudo apt-get update -qq
           sudo apt-get install -y -qq python3 python3-pip git curl pkg-config libssl-dev libgbm-dev || true
+      - name: 初始化 depot_tools（必须，否则 fetch 假成功）
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          export DEPOT_TOOLS_UPDATE=0
+          cd "$HOME/depot_tools"
+          ./ensure_bootstrap || gclient --version
+          ls -la python3_bin_reldir.txt
       - name: fetch 源码（浅克隆）
         run: |
           export PATH="$HOME/depot_tools:$PATH"
