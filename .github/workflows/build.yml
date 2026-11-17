@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: 'probe = 环境探测；build-depot = depot_tools+fetch 实机；build = content_shell 完整构建'
+        description: 'probe = 环境探测；build-depot = fetch 实机；build = F1 版构建；build-full = F1-F8 全补丁构建'
         required: true
         default: 'probe'
         type: choice
@@ -12,6 +12,7 @@ on:
           - probe
           - build-depot
           - build
+          - build-full
       persona_file:
         description: 'persona JSON 路径（仓库内相对路径）'
         required: false
@@ -85,8 +86,8 @@ jobs:
           path: fetch_report.txt
           retention-days: 5
 
-  build:
-    if: inputs.stage == 'build'
+  build-full:
+    if: inputs.stage == 'build-full'
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
@@ -160,5 +161,45 @@ jobs:
           path: |
             ~/chromium/src/out/Release/content_shell
             ~/chromium/src/out/Release/*.so
+          retention-days: 5
+          if-no-files-found: error
+
+  build-full-impl:
+    if: inputs.stage == 'build-full'
+    needs: []
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: depot_tools + 依赖 + 初始化（同 build）
+        run: |
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+          cd "$HOME/depot_tools" && ./ensure_bootstrap
+      - name: fetch 源码
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"; export DEPOT_TOOLS_UPDATE=0
+          mkdir -p "$HOME/chromium" && cd "$HOME/chromium"
+          time fetch --no-history --nohooks chromium 2>&1 | tail -5
+      - name: install-build-deps + runhooks
+        run: |
+          cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
+          sudo ./build/install-build-deps.sh --no-prompt 2>&1 | tail -5 || true
+          gclient runhooks 2>&1 | tail -5
+      - name: F1-F8 全补丁链式应用（apply_all）
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/apply_all.sh" "$HOME/chromium/src" "$GITHUB_WORKSPACE/persona/persona.example.json"
+      - name: GN + 编译
+        run: |
+          cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0'
+          autoninja -C out/Release content_shell
+      - name: 验收全指纹面
+        run: |
+          python3 "$GITHUB_WORKSPACE/scripts/verify_f1.py" "$HOME/chromium/src/out/Release/content_shell" "$GITHUB_WORKSPACE/persona/persona.example.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurora-fp-full-content-shell
+          path: ~/chromium/src/out/Release/content_shell
           retention-days: 5
           if-no-files-found: error
