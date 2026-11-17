@@ -17,7 +17,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
                     handlers=[logging.FileHandler(LOG), logging.StreamHandler(sys.stdout)])
 log = logging.getLogger("free-model-router")
 
-OR_KEY = open("/tmp/or_gk_full.txt").read().strip()
+def _read_key_file():
+    # 持久位置优先；/tmp 旧路径兜底；都缺失则降级为空（NIM 车道 401 被 failover 跳过，不再崩整个路由器）
+    for p in ("/home/zyt/.config/free-router/or_gw.key", "/tmp/or_gk_full.txt"):
+        try:
+            v = open(p).read().strip()
+            if v:
+                return v
+        except OSError:
+            continue
+    return ""
+
+OR_KEY = _read_key_file()
 _OFM_SETTINGS = "/home/zyt/.dsh/our-free-model/settings.json"
 def _ofm_key():
     """OFM forwardKey 会动态轮换，每次实时读取，永不过期"""
