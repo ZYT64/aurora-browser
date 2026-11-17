@@ -27,8 +27,9 @@ EDITS = [
         "third_party/blink/renderer/modules/webaudio/audio_buffer.cc",
         '#include "third_party/blink/renderer/modules/webaudio/audio_buffer.h"',
         '#include "third_party/blink/renderer/modules/webaudio/audio_buffer.h"\n'
-        '#include "third_party/blink/renderer/modules/webaudio/aurora_persona.h"',
-        'audio_buffer.cc: 插入 aurora_persona.h include',
+        '#include "third_party/blink/renderer/modules/webaudio/aurora_persona.h"\n'
+        + AURORA_FP_KERNEL,
+        'audio_buffer.cc: 插入 aurora_persona.h include + 微扰内核',
     ),
     (
         "third_party/blink/renderer/modules/webaudio/audio_buffer.cc",
@@ -65,8 +66,9 @@ EDITS = [
         "third_party/blink/renderer/modules/webaudio/realtime_analyser.cc",
         '#include "third_party/blink/renderer/modules/webaudio/realtime_analyser.h"',
         '#include "third_party/blink/renderer/modules/webaudio/realtime_analyser.h"\n'
-        '#include "third_party/blink/renderer/modules/webaudio/aurora_persona.h"',
-        'realtime_analyser.cc: 插入 aurora_persona.h include',
+        '#include "third_party/blink/renderer/modules/webaudio/aurora_persona.h"\n'
+        + AURORA_FP_KERNEL,
+        'realtime_analyser.cc: 插入 aurora_persona.h include + 微扰内核',
     ),
     (
         "third_party/blink/renderer/modules/webaudio/realtime_analyser.cc",
