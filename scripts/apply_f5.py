@@ -110,13 +110,19 @@ def main(src_root):
     for rel_path, edits in TARGETS:
         apply_edits('F5', f"{root}/{rel_path}", edits)
 
-    # 自检：替换确实落盘且含 persona 常量 / include
+    # 自检：每个目标文件落盘 aurora_persona.h include；kAurora 常量
+    # 落在至少一个目标文件中（按 F5 规范，gpu.cc 只做统一点标注）。
+    all_chk = {}
     for rel_path, _ in TARGETS:
         path = f"{root}/{rel_path}"
-        chk = open(path, encoding='utf-8').read()
-        if 'aurora_persona.h' not in chk or 'kAurora' not in chk:
-            print(f"F5 FAILED: {path} 未落盘 persona 常量或 include", file=sys.stderr)
+        all_chk[rel_path] = open(path, encoding='utf-8').read()
+        if 'aurora_persona.h' not in all_chk[rel_path]:
+            print(f"F5 FAILED: {path} 未落盘 aurora_persona.h include", file=sys.stderr)
             sys.exit(1)
+    joined = "\n".join(all_chk.values())
+    if 'kAurora' not in joined:
+        print("F5 FAILED: 未落盘任何 kAurora 常量", file=sys.stderr)
+        sys.exit(1)
     print("F5 全部应用并落盘（含 kAurora）")
 
 
