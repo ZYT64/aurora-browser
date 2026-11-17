@@ -18,6 +18,10 @@
 [[maybe_unused]] static constexpr uint32_t kAuroraDeviceMemory     = 8;
 [[maybe_unused]] static constexpr uint32_t kAuroraHardwareConcurrency = 8;
 
+// AURORA-FP F3/F4: 固定种子（canvas/audio 微扰用，跨会话恒定）
+[[maybe_unused]] static constexpr uint64_t kAuroraCanvasSeed = 3333428776324975687ULL;
+[[maybe_unused]] static constexpr uint64_t kAuroraAudioSeed = 3333428776324975687ULL;
+
 // AURORA-FP F8: Client Hints
 [[maybe_unused]] static constexpr char kAuroraPlatform[]     = "Win32";
 [[maybe_unused]] static constexpr char kAuroraArch[]         = "x86";
