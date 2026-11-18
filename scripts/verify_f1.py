@@ -10,6 +10,7 @@ import sys
 import os
 import json
 import re
+import shutil
 import subprocess
 import urllib.parse
 
@@ -35,14 +36,19 @@ def run_verification(cs_path, persona_path):
     PAGE = f'data:text/html,<html><body><script>{js_code}</script></body></html>'
 
     # 运行 content_shell --dump-dom
-    cmd = [cs_path, '--dump-dom', '--no-sandbox', '--enable-unsafe-swiftshader', PAGE]
+    # CI runner 无 X 显示：用 xvfb-run 包裹（install-build-deps 会装）；
+    # SwiftShader 软渲染 WebGL 需要 --enable-unsafe-swiftshader（Chromium 132+ 强制显式允许）
+    cmd = [cs_path, '--dump-dom', '--no-sandbox', '--enable-unsafe-swiftshader',
+           '--use-gl=angle', '--use-angle=swiftshader', PAGE]
+    if shutil.which('xvfb-run'):
+        cmd = ['xvfb-run', '-a', '--server-args=-screen 0 1280x1024x24'] + cmd
     try:
-        result = subprocess.run(cmd, timeout=60, capture_output=True, text=True)
+        result = subprocess.run(cmd, timeout=120, capture_output=True, text=True)
     except subprocess.TimeoutExpired:
-        print(f"FAIL: content_shell 超时 (60s)", file=sys.stderr)
+        print(f"FAIL: content_shell 超时 (120s)", file=sys.stderr)
         sys.exit(1)
-    except FileNotFoundError:
-        print(f"FAIL: content_shell 不存在: {cs_path}", file=sys.stderr)
+    except FileNotFoundError as e:
+        print(f"FAIL: 可执行文件不存在: {e}", file=sys.stderr)
         sys.exit(1)
 
     out = result.stdout
@@ -51,7 +57,9 @@ def run_verification(cs_path, persona_path):
     m = re.search(r'VENDOR=([^|&<]+)\|RENDERER=([^|&<]+)', out)
     if not m:
         print(f"FAIL: 无法从 dump-dom 提取 VENDOR/RENDERER", file=sys.stderr)
-        print(f"stdout 前500字符: {out[:500]}", file=sys.stderr)
+        print(f"exit code: {result.returncode}", file=sys.stderr)
+        print(f"stdout 前500字符: {out[:500]!r}", file=sys.stderr)
+        print(f"stderr 前500字符: {(result.stderr or '')[:500]!r}", file=sys.stderr)
         sys.exit(1)
 
     actual_vendor = urllib.parse.unquote(m.group(1))

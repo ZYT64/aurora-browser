@@ -130,11 +130,13 @@ jobs:
       - name: 生成 persona header + 打 F1 补丁
         run: |
           cd "$GITHUB_WORKSPACE"
-          # persona header 拷到补丁 include 的精确路径
-          mkdir -p "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/"
-          cp src-overlay/aurora_persona.h "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/aurora_persona.h"
           # 应用 F1 补丁（精确锚点替换，不依赖行号）
           python3 "$GITHUB_WORKSPACE/scripts/apply_f1.py" "$HOME/chromium/src"
+          # persona header 扩散：所有 include aurora_persona.h 的目录都要有这个头（F1-F8 引用多个子目录）
+          grep -rl 'aurora_persona\.h' "$HOME/chromium/src/third_party/blink" 2>/dev/null | xargs -r -n1 dirname | sort -u | while read -r d; do
+            cp "$GITHUB_WORKSPACE/src-overlay/aurora_persona.h" "$d/aurora_persona.h"
+          done
+          echo "persona header 已扩散到:"; find "$HOME/chromium/src/third_party/blink" -name 'aurora_persona.h'
           grep -n 'kAuroraGLRenderer\|aurora_persona' "$HOME/chromium/src/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc" | head -5
       - name: GN 生成
         run: |
@@ -189,6 +191,11 @@ jobs:
       - name: F1-F8 全补丁链式应用（apply_all）
         run: |
           bash "$GITHUB_WORKSPACE/scripts/apply_all.sh" "$HOME/chromium/src" "$GITHUB_WORKSPACE/persona/persona.example.json"
+          # persona header 扩散：所有 include aurora_persona.h 的目录都要有这个头
+          grep -rl 'aurora_persona\.h' "$HOME/chromium/src/third_party/blink" 2>/dev/null | xargs -r -n1 dirname | sort -u | while read -r d; do
+            cp "$GITHUB_WORKSPACE/src-overlay/aurora_persona.h" "$d/aurora_persona.h"
+          done
+          echo "persona header 已扩散到:"; find "$HOME/chromium/src/third_party/blink" -name 'aurora_persona.h'
       - name: GN + 编译
         run: |
           cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
