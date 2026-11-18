@@ -26,7 +26,7 @@ EDITS = [
     (
         '#include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"',
         '#include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"\n'
-        '#include "third_party/blink/renderer/modules/canvas/aurora_persona.h"',
+        '#include "third_party/blink/renderer/modules/canvas/canvas2d/aurora_persona.h"',
         '插入 aurora_persona.h include',
     ),
     # ② getImageDataInternal 锚点：函数体开头插入噪声预处理注释与调用点

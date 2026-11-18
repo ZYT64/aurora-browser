@@ -206,11 +206,19 @@ jobs:
       - name: F1-F8 全补丁链式应用（apply_all）
         run: |
           bash "$GITHUB_WORKSPACE/scripts/apply_all.sh" "$HOME/chromium/src" "$GITHUB_WORKSPACE/persona/persona.example.json"
-          # persona header 扩散：所有 include aurora_persona.h 的目录都要有这个头
+          # persona header 扩散 v2：
+          # ① 按文件所在目录放（include 写相对名时兜底）
           grep -rl 'aurora_persona\.h' "$HOME/chromium/src/third_party/blink" 2>/dev/null | xargs -r -n1 dirname | sort -u | while read -r d; do
             cp "$GITHUB_WORKSPACE/src-overlay/aurora_persona.h" "$d/aurora_persona.h"
           done
-          echo "persona header 已扩散到:"; find "$HOME/chromium/src/third_party/blink" -name 'aurora_persona.h'
+          # ② 按 include 写的完整路径放（include 写 third_party/... 全路径时必须放全路径处，否则 fatal file not found）
+          grep -rl 'aurora_persona\.h' "$HOME/chromium/src/third_party/blink" 2>/dev/null | while read -r f; do
+            grep -ho '"third_party/[^"]*aurora_persona\.h"' "$f" 2>/dev/null | tr -d '"' | sort -u | while read -r inc; do
+              tgt="$HOME/chromium/src/$inc"
+              if [ ! -f "$tgt" ]; then mkdir -p "$(dirname "$tgt")"; cp "$GITHUB_WORKSPACE/src-overlay/aurora_persona.h" "$tgt"; fi
+            done
+          done
+          echo "persona header 已扩散到:"; find "$HOME/chromium/src" -name 'aurora_persona.h' | sort
       - name: GN + 编译
         run: |
           cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
