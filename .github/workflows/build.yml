@@ -89,15 +89,22 @@ jobs:
   build-full:
     if: inputs.stage == 'build-full'
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 356
     steps:
       - uses: actions/checkout@v4
+      - name: ccache 缓存恢复（首轮无缓存，后续轮编译大幅提速）
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-full-${{ github.run_id }}
+          restore-keys: |
+            ccache-full-
       - name: depot_tools + python 基件
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
           echo "$HOME/depot_tools" >> "$GITHUB_PATH"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq python3 python3-pip git curl pkg-config libssl-dev libgbm-dev || true
+          sudo apt-get install -y -qq python3 python3-pip git curl pkg-config libssl-dev libgbm-dev ccache || true
       - name: 初始化 depot_tools（必须，否则 fetch 假成功）
         run: |
           export PATH="$HOME/depot_tools:$PATH"
@@ -143,12 +150,13 @@ jobs:
           cd "$HOME/chromium/src"
           export PATH="$HOME/depot_tools:$PATH"
           # 非 official release：编译快、无 PGO 依赖；symbol_level=0 省内存磁盘
-          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0'
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache"'
       - name: 编译 content_shell（最多 300 分钟，自动用 autoninja 并行）
         run: |
           cd "$HOME/chromium/src"
           export PATH="$HOME/depot_tools:$PATH"
           time autoninja -C out/Release content_shell
+          ccache -s | tail -8
       - name: 验证内容
         run: |
           cd "$HOME/chromium/src"
@@ -170,9 +178,16 @@ jobs:
     if: inputs.stage == 'build-full'
     needs: []
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 356
     steps:
       - uses: actions/checkout@v4
+      - name: ccache 缓存恢复（首轮无缓存，后续轮编译大幅提速）
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-impl-${{ github.run_id }}
+          restore-keys: |
+            ccache-impl-
       - name: depot_tools + 依赖 + 初始化（同 build）
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
@@ -199,8 +214,10 @@ jobs:
       - name: GN + 编译
         run: |
           cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
-          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0'
+          sudo apt-get install -y -qq ccache || true
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache"'
           autoninja -C out/Release content_shell
+          ccache -s | tail -8
       - name: 验收全指纹面
         run: |
           python3 "$GITHUB_WORKSPACE/scripts/verify_f1.py" "$HOME/chromium/src/out/Release/content_shell" "$GITHUB_WORKSPACE/persona/persona.example.json"
