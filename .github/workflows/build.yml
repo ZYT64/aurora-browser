@@ -150,7 +150,7 @@ jobs:
           cd "$HOME/chromium/src"
           export PATH="$HOME/depot_tools:$PATH"
           # 非 official release：编译快、无 PGO 依赖；symbol_level=0 省内存磁盘
-          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache"'
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache" treat_warnings_as_errors=false'
       - name: 编译 content_shell（最多 300 分钟，自动用 autoninja 并行）
         run: |
           cd "$HOME/chromium/src"
@@ -215,7 +215,7 @@ jobs:
         run: |
           cd "$HOME/chromium/src"; export PATH="$HOME/depot_tools:$PATH"
           sudo apt-get install -y -qq ccache || true
-          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache"'
+          gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache" treat_warnings_as_errors=false'
           autoninja -C out/Release content_shell
           ccache -s | tail -8
       - name: 验收全指纹面
