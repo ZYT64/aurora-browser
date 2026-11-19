@@ -93,13 +93,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ccache 缓存恢复（首轮无缓存，后续轮编译大幅提速）
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/.ccache
           key: ccache-full-${{ github.run_id }}
           restore-keys: |
             ccache-full-
-        save-always: true
       - name: depot_tools + python 基件
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
@@ -158,6 +157,12 @@ jobs:
           export PATH="$HOME/depot_tools:$PATH"
           time autoninja -C out/Release content_shell
           ccache -s | tail -8
+      - name: ccache 保存（失败/取消也保存——actions/cache 默认只在成功时保存，#10 起 5 轮全空转的根因）
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.ccache
+          key: ccache-full-${{ github.run_id }}
       - name: 验证内容
         run: |
           cd "$HOME/chromium/src"
@@ -183,13 +188,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ccache 缓存恢复（首轮无缓存，后续轮编译大幅提速）
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/.ccache
           key: ccache-impl-${{ github.run_id }}
           restore-keys: |
             ccache-impl-
-        save-always: true
       - name: depot_tools + 依赖 + 初始化（同 build）
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
@@ -228,6 +232,12 @@ jobs:
           gn gen out/Release --args='is_official_build=false is_debug=false is_component_build=false target_cpu="x64" symbol_level=0 blink_symbol_level=0 v8_symbol_level=0 cc_wrapper="ccache" treat_warnings_as_errors=false'
           autoninja -C out/Release content_shell
           ccache -s | tail -8
+      - name: ccache 保存（失败/取消也保存——actions/cache 默认只在成功时保存，#10 起 5 轮全空转的根因）
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.ccache
+          key: ccache-impl-${{ github.run_id }}
       - name: 验收全指纹面
         run: |
           python3 "$GITHUB_WORKSPACE/scripts/verify_f1.py" "$HOME/chromium/src/out/Release/content_shell" "$GITHUB_WORKSPACE/persona/persona.example.json"
