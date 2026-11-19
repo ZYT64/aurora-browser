@@ -100,7 +100,6 @@ jobs:
           restore-keys: |
             ccache-full-
         save-always: true
-          save-always: true
       - name: depot_tools + python 基件
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
@@ -191,7 +190,6 @@ jobs:
           restore-keys: |
             ccache-impl-
         save-always: true
-          save-always: true
       - name: depot_tools + 依赖 + 初始化（同 build）
         run: |
           git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
